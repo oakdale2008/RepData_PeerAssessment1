@@ -2,19 +2,265 @@
 
 
 ## Loading and preprocessing the data
+```{r echo=TRUE}
+activity_raw <- read.csv("activity.csv")
 
+### Get complete cases only. Omit NA values
+activity_complete_cases <- activity_raw[complete.cases(activity_raw),]
 
-
+```
 ## What is mean total number of steps taken per day?
 
+Create empty data frame and get the total steps for each day (plus mean and median for each day which i ended up not using)
+```{r echo=TRUE}
+### create a data frame to hold sum/mean/median for each day
+daily_stats <- data.frame(date=character(0),total_steps=numeric(0),mean_steps=numeric(0),median_steps=numeric(0))
+dates <- levels(activity_complete_cases$date)
 
+### for each date calculate the daily mean
+for (i in dates){
+### Get all stats for a paticular day
+  single_day_stats <- activity_complete_cases[activity_complete_cases$date%in%i,]
+  
+  ### if there are no rows in the daily stats 
+  ### that means we have no data for that day
+  if (dim(single_day_stats)[1] == 0){
+      ### get the daily mean from all the steps taken on a particular day
+      daily_stats <- rbind(daily_stats,data.frame(date=i,total_steps=0,mean_steps=0,median_steps=0))      
+      }
+  else{
+      ### get the daily mean from all the steps taken on a particular day  
+      daily_stats <- rbind(daily_stats,data.frame(date=i,total_steps=sum(single_day_stats$steps),mean_steps=mean(single_day_stats$steps), median_steps=median(single_day_stats$steps)))
+  }
+
+}
+```
+Now create our histogram for the total steps for each day
+```{r echo=TRUE}
+### Create histogram showing the totals steps for each day and the frequency of those values
+hist (daily_stats$total_steps,xlab="Total Steps Per Day",ylab="Frequency", main =paste("Histogram of Total steps per day"),breaks=length(daily_stats$total_steps))
+
+```
+### Now we calculate the overall mean steps
+```{r echo=TRUE}
+### mean for total steps
+overall_mean_steps<- mean(daily_stats$total_steps)
+print(overall_mean_steps)
+```
+
+### Now we calculate the overall median steps below
+
+```{r echo=TRUE}
+overall_median_steps <- median(daily_stats$total_steps)
+
+print(overall_median_steps)
+```
 
 ## What is the average daily activity pattern?
 
+Create a data frame to hold the mean steps for each 5 min interval
+and then calculate the mean steps for each 5 min interval across all days
+```{r echo=TRUE}
+### Create a data frame to hold mean steps and the interval value
+mean_steps_interval <- data.frame(mean_steps=numeric(0),interval=numeric(0))
+intervals <- unique(activity_complete_cases$interval)
+
+### now calculate the mean steps on a particular interval across all days
+for (i in intervals) {
+interval_stats <- activity_complete_cases[activity_complete_cases$interval==i,]
+ mean_steps_interval <- rbind(mean_steps_interval,data.frame(mean_steps=mean(interval_stats$steps),interval=i))
+}
+
+
+```
+
+Now show the time plot indicating the mean steps for each 5 min Interval
+```{r echo=TRUE}
+
+### Make time plot showing of mean steps vs interval
+plot(mean_steps_interval$interval,mean_steps_interval$mean_steps,type="l", main="Time Series plot of mean num steps on all days for given 5 min interval", xlab="5 min interval", ylab="mean number of steps across all days")
+
+```
+
+### Now show the 5 min interval which had the maximum mean steps 
+```{r echo=TRUE}
+mean_steps_interval[mean_steps_interval$mean_steps==max(mean_steps_interval$mean_steps),"interval"]
+```
 
 
 ## Imputing missing values
 
+### Strategy for Imputing values.
 
+I chose to use a rounded value for the mean for the intervals to replace NA values.
+I did this for the following reasons:
+
+- Some days were all NA so the same daily mean for each NA value in that case could unfairly increase the total number of steps for that day
+- I rounded the mean value for the intervals in order to have a complete number of steps as it shoud be an integer value.
+- I thought it might introduce a certain amount of variety into the imputed values which might randomise across days evenly- this is just a guess but i thought for some days with had only a few NA values that a predictor based on the interval might be more probable than a general daily mean being imputed.
+
+
+### Below i count and printout the total NA values in the raw data
+```{r echo=TRUE}
+
+### count total NA values
+activity_na_cases <- activity_raw[!complete.cases(activity_raw),]
+total_NA_values <- dim(activity_na_cases)[1]
+
+print(paste("Total NA cases is ",total_NA_values))
+
+```
+
+Now i impute the NA values using the rounded mean steps for each interval
+
+```{r echo=TRUE}
+activity_imputed <- activity_raw
+
+for (i in intervals){
+  ### replace all NA values found for this interval  
+  activity_imputed[activity_imputed$interval==i,"steps"]<- replace(activity_imputed[activity_imputed$interval==i,"steps"],is.na(activity_imputed[activity_imputed$interval==i,"steps"]),round(mean_steps_interval[mean_steps_interval$interval==i,"mean_steps"],digits=0))  
+  }
+```
+
+count our NA values to make sure we have none left
+
+```{r echo=TRUE}
+  
+  ### count our NA values to make sure 
+  print(summary(is.na(activity_imputed$steps)))
+
+```
+
+Now we recalculate the total steps each day using the imputed values (and we also calculate the mean,median per day which we don't use!!)
+
+```{r echo=TRUE}
+
+### create a data frame to hold sum/mean/median for each day
+daily_imputed_stats <- data.frame(date=character(0),total_steps=numeric(0),mean_steps=numeric(0),median_steps=numeric(0))
+dates <- levels(activity_imputed$date)
+
+### for each date calculate the daily mean
+for (i in dates){
+### Get all stats for a paticular day
+  single_day_stats <- activity_imputed[activity_imputed$date%in%i,]
+  
+  ### if there are no rows in the daily stats 
+  ### that means we have no data for that day
+  if (dim(single_day_stats)[1] == 0){
+      ### get the daily mean from all the steps taken on a particular day
+      daily_imputed_stats <- rbind(daily_stats,data.frame(date=i,total_steps=0,mean_steps=0,median_steps=0))      
+      }
+  else{
+      ### get the daily mean from all the steps taken on a particular day  
+      daily_imputed_stats <- rbind(daily_imputed_stats,data.frame(date=i,total_steps=sum(single_day_stats$steps),mean_steps=mean(single_day_stats$steps), median_steps=median(single_day_stats$steps)))
+  }
+
+}
+```
+
+So now we create our new histogram showing the total steps for each day using the imputed values
+
+```{r echo=TRUE}
+
+### Create histogram showing the totals steps for each day and the frequency of those values
+hist (daily_imputed_stats$total_steps,xlab="Total Steps Per Day Imputed Data",ylab="Frequency", main =paste("Histogram of Total steps per day for Imputed Data"),breaks=length(daily_imputed_stats$total_steps))
+
+```
+
+### Now we calculate the overall mean steps using the imputed values
+```{r echo=TRUE}
+
+### mean for total steps
+overall_imputed_mean_steps<- mean(daily_imputed_stats$total_steps)
+print(overall_imputed_mean_steps)
+
+```
+
+### Now we calculate the overall median steps using the imputed values
+
+```{r echo=TRUE}
+overall_imputed_median_steps <- median(daily_imputed_stats$total_steps)
+
+print(overall_imputed_median_steps)
+
+
+```
+
+### Do these values differ from the estimates from the first part of the assignment? What is the impact of imputing missing data on the estimates of the total daily number of steps?
+Yes the values are higher than previously. It appears the estimates of total daily steps has increased with imputed data
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+So here we transform the dates in the raw data to a big list of weekdays.
+
+```{r echo=TRUE}
+
+### Create list with a weekday name for every row in the imputed data
+activity_Weekdays <- weekdays(as.Date(activity_imputed$date))
+
+### change Sat/Sun to "weekend" in our list 
+activity_Weekdays[activity_Weekdays=="Sunday"| activity_Weekdays=="Saturday"] <- "weekend"
+
+### change Mon-Fri to "weekday" in our list
+activity_Weekdays[activity_Weekdays=="Monday" | activity_Weekdays=="Tuesday" | activity_Weekdays=="Wednesday" | activity_Weekdays=="Thursday" | activity_Weekdays=="Friday"] <- "weekday"
+
+```
+
+change our weekday list to be a factor and create a new column in our imputed data frame 
+with the weekday information
+
+```{r echo=TRUE}
+
+## change data type to be factor
+activity_Weekdays <- as.factor(activity_Weekdays)
+
+## add this factor to a column in the imputed data
+activity_imputed["DayType"] <- activity_Weekdays
+
+```
+
+So now we will create seperate data frames for weekend and weekday data
+to help us calculate the means for each seperately
+```{r echo=TRUE}
+
+## create data frames seperating weekend and weekdays 
+activity_weekends_data <- activity_imputed[activity_imputed$DayType=="weekend",]
+activity_weekdays_data <- activity_imputed[activity_imputed$DayType=="weekday",]
+
+```
+
+So now we have seperate data frames for weekday/weekend data we will also create seperate
+data frames to contain the mean steps per interval for both weekday/weekend
+
+```{r echo=TRUE}
+
+
+## initiaize seperate arrays for holding mean values for weekends and weekdays
+mean_steps_interval_weekends <- data.frame(mean_steps=numeric(0),interval=numeric(0))
+mean_steps_interval_weekdays <- data.frame(mean_steps=numeric(0),interval=numeric(0))
+
+intervals <- unique(activity_complete_cases$interval)
+
+
+### now calculate the mean steps on a particular interval across weekdays and weekends
+for (i in intervals) {
+
+  interval_stats_weekends <- activity_weekends_data[activity_weekends_data$interval==i,]
+  mean_steps_interval_weekends <- rbind(mean_steps_interval_weekends,data.frame(mean_steps=mean(interval_stats_weekends$steps),interval=i))
+
+  interval_stats_weekdays <- activity_weekdays_data[activity_weekdays_data$interval==i,]
+  mean_steps_interval_weekdays <- rbind(mean_steps_interval_weekdays,data.frame(mean_steps=mean(interval_stats_weekdays$steps),interval=i))
+
+  }
+```
+
+Now we will use base plotting to create a panel graph to visually compare the average steps across the 5 min intervals of both a weekday and a weekend day to see if there is a difference in activity on the weekends
+
+```{r echo=TRUE}
+
+par(mfrow=c(2,1))
+plot(mean_steps_interval_weekdays$interval,mean_steps_interval_weekdays$mean_steps,type="l", main ="Average Steps per 5 min interval: Weekdays",xlab="5 min interval",ylab="average steps")
+
+plot(mean_steps_interval_weekends$interval,mean_steps_interval_weekends$mean_steps,type="l", main ="Average Steps per 5 min interval: Weekends",xlab="5 min interval",ylab="average steps")
+
+```
